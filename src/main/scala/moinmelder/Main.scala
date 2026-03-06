@@ -9,6 +9,7 @@ import zio.*
 import zio.stream.*
 
 import java.time.{LocalDate, LocalDateTime, LocalTime, ZoneId}
+import java.time.format.DateTimeFormatter
 
 object Main extends ZIOAppDefault:
 
@@ -38,7 +39,13 @@ object Main extends ZIOAppDefault:
   private def dailyLoop(
       config: AppConfig
   ): ZIO[RadioStream & VoskTranscriber & TriggerDetector & WhatsAppNotifier, Throwable, Nothing] =
-    (waitForMonitoringWindow(config.schedule) *> runMonitoringSession(config)).forever
+    (waitForMonitoringWindow(config.schedule) *>
+      runMonitoringSession(config).catchAll { err =>
+        ZIO.logError(s"Monitoring-Session fehlgeschlagen: ${err.getMessage}") *>
+          ZIO.logError("Warte 2 Minuten vor erneutem Versuch...") *>
+          ZIO.sleep(2.minutes)
+      }
+    ).forever
 
   private def waitForMonitoringWindow(
       schedule: ScheduleConfig
@@ -135,7 +142,11 @@ object Main extends ZIOAppDefault:
   private val healthCheckTimes = List(LocalTime.of(12, 0), LocalTime.of(18, 0))
 
   private def healthCheckLoop: ZIO[RadioStream & VoskTranscriber & WhatsAppNotifier, Throwable, Nothing] =
-    (waitForNextHealthCheck *> runHealthCheck).forever
+    (waitForNextHealthCheck *>
+      runHealthCheck.catchAll { err =>
+        ZIO.logError(s"Health-Check fehlgeschlagen: ${err.getMessage}")
+      }
+    ).forever
 
   private def waitForNextHealthCheck: ZIO[Any, Nothing, Unit] =
     for
@@ -179,9 +190,12 @@ object Main extends ZIOAppDefault:
 
 private object Messages:
 
+  private val timeFormat = DateTimeFormatter.ofPattern("H:mm")
+
   def startMessage(schedule: ScheduleConfig): String =
-    val start = f"${schedule.targetHour}%d:${schedule.targetMinute - schedule.windowMinutes}%02d"
-    val end   = f"${schedule.targetHour}%d:${schedule.targetMinute + schedule.windowMinutes}%02d"
+    val target = LocalTime.of(schedule.targetHour, schedule.targetMinute)
+    val start  = target.minusMinutes(schedule.windowMinutes.toLong).format(timeFormat)
+    val end    = target.plusMinutes(schedule.windowMinutes.toLong).format(timeFormat)
     s"""☀️ *Moin Moin!* ☀️
        |
        |🎙️ Der MoinMelder ist wach und hört jetzt R.SH!

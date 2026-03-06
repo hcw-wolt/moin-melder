@@ -30,7 +30,8 @@ object WhatsAppNotifier:
       context <- acquireBrowserContext(pw, config)
       page    <- ZIO.attemptBlocking(context.pages().get(0))
       _       <- navigateToWhatsApp(page)
-    yield WhatsAppNotifierLive(page, config.whatsapp.groupName)
+      lock    <- Semaphore.make(1)
+    yield WhatsAppNotifierLive(page, config.whatsapp.groupName, lock)
 
   private def acquirePlaywright: ZIO[Scope, Throwable, Playwright] =
     ZIO.acquireRelease(
@@ -69,7 +70,7 @@ object WhatsAppNotifier:
   def sendGroupMessage(message: String): ZIO[WhatsAppNotifier, Throwable, Unit] =
     ZIO.serviceWithZIO[WhatsAppNotifier](_.sendGroupMessage(message))
 
-private final class WhatsAppNotifierLive(page: Page, groupName: String) extends WhatsAppNotifier:
+private final class WhatsAppNotifierLive(page: Page, groupName: String, lock: Semaphore) extends WhatsAppNotifier:
 
   private val formatter = DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.of("Europe/Berlin"))
 
@@ -77,12 +78,14 @@ private final class WhatsAppNotifierLive(page: Page, groupName: String) extends 
     sendGroupMessage(buildMessage(event))
 
   override def sendGroupMessage(message: String): Task[Unit] =
-    for
-      _ <- ZIO.logInfo(s"Sending WhatsApp message to group '$groupName'")
-      _ <- openGroup
-      _ <- sendMessage(message)
-      _ <- ZIO.logInfo("WhatsApp message sent successfully")
-    yield ()
+    lock.withPermit {
+      for
+        _ <- ZIO.logInfo(s"Sending WhatsApp message to group '$groupName'")
+        _ <- openGroup
+        _ <- sendMessage(message)
+        _ <- ZIO.logInfo("WhatsApp message sent successfully")
+      yield ()
+    }
 
   private def openGroup: Task[Unit] =
     ZIO.attemptBlocking {
