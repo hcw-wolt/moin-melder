@@ -18,9 +18,7 @@ trait TriggerDetector:
 object TriggerDetector:
 
   val layer: ZLayer[AppConfig, Nothing, TriggerDetector] =
-    ZLayer.fromFunction { (config: AppConfig) =>
-      TriggerDetectorLive(config)
-    }
+    ZLayer.derive[TriggerDetectorLive]
 
   def detect(texts: ZStream[Any, Throwable, String]): ZStream[TriggerDetector, Throwable, TriggerEvent] =
     ZStream.serviceWithStream[TriggerDetector](_.detect(texts))

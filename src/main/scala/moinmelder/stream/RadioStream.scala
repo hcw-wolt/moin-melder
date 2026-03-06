@@ -12,9 +12,7 @@ trait RadioStream:
 object RadioStream:
 
   val layer: ZLayer[AppConfig, Nothing, RadioStream] =
-    ZLayer.fromFunction { (config: AppConfig) =>
-      RadioStreamLive(config)
-    }
+    ZLayer.derive[RadioStreamLive]
 
   def audioStream: ZStream[RadioStream, Throwable, Byte] =
     ZStream.serviceWithStream[RadioStream](_.audioStream)

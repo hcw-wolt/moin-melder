@@ -7,7 +7,10 @@
 - `enum` statt `sealed trait` + `case class`
 - `given`/`using` statt `implicit`
 - `extension` Methods statt implicit classes
+- `derives` Klausel für Typeclass-Derivation: `case class Foo(x: Int) derives JsonDecoder`
 - Trailing Commas in Parameterlisten
+- Intersection Types mit `&`: `ZIO[ServiceA & ServiceB, Throwable, Unit]`
+- Varargs-Forwarding mit `*`: `List(args*)`
 
 ## ZIO Patterns
 
@@ -29,25 +32,25 @@ trait MyService:
 
 // 2. Companion mit Layer und Accessor-Methoden
 object MyService:
-  val layer: ZLayer[Dependencies, Throwable, MyService] = ...
+  val layer: ZLayer[Dependencies, Throwable, MyService] =
+    ZLayer.derive[MyServiceLive]
 
   def doSomething: ZIO[MyService, Throwable, Unit] =
     ZIO.serviceWithZIO[MyService](_.doSomething)
 
 // 3. Private Implementierung
-private final class MyServiceLive(...) extends MyService:
+private final class MyServiceLive(dep: Dep) extends MyService:
   override def doSomething: ZIO[Any, Throwable, Unit] = ...
 ```
 
+- **`ZLayer.derive[Impl]`** bevorzugen — leitet den Layer automatisch aus dem Konstruktor ab
 - Accessor-Methoden im Companion nutzen `ZIO.serviceWithZIO` (Effekte) oder `ZStream.serviceWithStream` (Streams)
 - Implementierung ist immer `private final class`
 - Layer-Komposition in `Main.run` via `.provide(...)`
 
 ### Resource Management
 
-- Ressourcen mit Lifecycle → `ZLayer.scoped` + `ZIO.acquireRelease`
-- Einfache Factories → `ZLayer.fromFunction`
-- Cleanup in `acquireRelease` darf nicht feilen: `ZIO.succeed(resource.close())`
+Wenn ein Service Ressourcen mit Lifecycle verwaltet (z.B. Vosk Model, Playwright Browser), kann `ZLayer.derive` **nicht** verwendet werden. Stattdessen:
 
 ```scala
 val layer: ZLayer[Deps, Throwable, MyService] =
@@ -60,6 +63,10 @@ val layer: ZLayer[Deps, Throwable, MyService] =
     yield MyServiceLive(resource)
   }
 ```
+
+- `ZLayer.derive` → einfache Constructor-Injection (RadioStream, TriggerDetector)
+- `ZLayer.scoped` + `ZIO.acquireRelease` → Ressourcen mit Cleanup (VoskTranscriber, WhatsAppNotifier)
+- Cleanup in `acquireRelease` darf nicht feilen: `ZIO.succeed(resource.close())`
 
 ### ZStream
 

@@ -47,13 +47,9 @@ object VoskTranscriber:
   def transcribeTagged(audio: ZStream[Any, Throwable, Byte]): ZStream[VoskTranscriber, Throwable, TranscriptResult] =
     ZStream.serviceWithStream[VoskTranscriber](_.transcribeTagged(audio))
 
-private final case class VoskResult(text: String)
-private object VoskResult:
-  given JsonDecoder[VoskResult] = DeriveJsonDecoder.gen[VoskResult]
+private final case class VoskResult(text: String) derives JsonDecoder
 
-private final case class VoskPartialResult(partial: String)
-private object VoskPartialResult:
-  given JsonDecoder[VoskPartialResult] = DeriveJsonDecoder.gen[VoskPartialResult]
+private final case class VoskPartialResult(partial: String) derives JsonDecoder
 
 private final class VoskTranscriberLive(model: Model) extends VoskTranscriber:
 
