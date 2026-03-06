@@ -1,0 +1,25 @@
+# sbt
+target/
+project/target/
+project/project/
+
+# IDE
+.idea/
+.vscode/
+.bsp/
+metals.sbt
+.metals/
+.bloop/
+
+# WhatsApp session data
+whatsapp-session/
+
+# Vosk model (downloaded separately)
+vosk-model/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker volumes
+docker/data/

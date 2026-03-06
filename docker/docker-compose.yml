@@ -1,0 +1,14 @@
+services:
+  moin-melder:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "6080:6080"  # noVNC web UI for WhatsApp QR code scanning
+    volumes:
+      - whatsapp-session:/data/whatsapp-session
+    shm_size: '2gb'  # Chromium needs shared memory
+    restart: unless-stopped
+
+volumes:
+  whatsapp-session:
