@@ -59,7 +59,7 @@ object WhatsAppNotifier:
       page.navigate("https://web.whatsapp.com/")
       // Wait for chat list to load (indicates successful login)
       page.waitForSelector(
-        "#pane-side, [aria-label='Chatliste']",
+        "#pane-side, [aria-label='Chatliste'], [aria-label*='Chat']",
         new Page.WaitForSelectorOptions().setTimeout(120_000),
       )
     } *> ZIO.logInfo("WhatsApp Web loaded and logged in")
@@ -98,15 +98,15 @@ private final class WhatsAppNotifierLive(page: Page, groupName: String, lock: Se
     ZIO.attemptBlocking {
       page.navigate("https://web.whatsapp.com/")
       page.waitForSelector(
-        "#pane-side, [aria-label='Chatliste']",
+        "#pane-side, [aria-label='Chatliste'], [aria-label*='Chat']",
         new Page.WaitForSelectorOptions().setTimeout(60_000),
       )
     } *> ZIO.logInfo("WhatsApp Web neu geladen")
 
   private def openGroup: Task[Unit] =
     ZIO.attemptBlocking {
-      // Click on search input
-      val searchBox = page.locator("[aria-label='Sucheingabefeld']")
+      // Click on search input (aria-label changed from 'Sucheingabefeld' to 'Suchen oder neuen Chat beginnen')
+      val searchBox = page.locator("[aria-label*='Such'], [aria-label*='search' i]").first()
       searchBox.click()
       searchBox.fill(groupName)
 
