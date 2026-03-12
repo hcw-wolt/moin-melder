@@ -79,13 +79,29 @@ private final class WhatsAppNotifierLive(page: Page, groupName: String, lock: Se
 
   override def sendGroupMessage(message: String): Task[Unit] =
     lock.withPermit {
-      for
-        _ <- ZIO.logInfo(s"Sending WhatsApp message to group '$groupName'")
-        _ <- openGroup
-        _ <- sendMessage(message)
-        _ <- ZIO.logInfo("WhatsApp message sent successfully")
-      yield ()
+      val send =
+        for
+          _ <- ZIO.logInfo(s"Sending WhatsApp message to group '$groupName'")
+          _ <- openGroup
+          _ <- sendMessage(message)
+          _ <- ZIO.logInfo("WhatsApp message sent successfully")
+        yield ()
+
+      send.catchAll { err =>
+        ZIO.logWarning(s"WhatsApp send fehlgeschlagen, lade Seite neu: ${err.getMessage}") *>
+          reloadPage *>
+          send
+      }
     }
+
+  private def reloadPage: Task[Unit] =
+    ZIO.attemptBlocking {
+      page.navigate("https://web.whatsapp.com/")
+      page.waitForSelector(
+        "#pane-side, [aria-label='Chatliste']",
+        new Page.WaitForSelectorOptions().setTimeout(60_000),
+      )
+    } *> ZIO.logInfo("WhatsApp Web neu geladen")
 
   private def openGroup: Task[Unit] =
     ZIO.attemptBlocking {
